@@ -94,7 +94,7 @@ Build:
   MapRendererProjectName: "Content.MapRenderer"
   MapRendererCommand: "Content.MapRenderer"  # Use "Content.MapRenderer.exe" on Windows
   MapRendererOptionsString: "--format webp --viewer -f"
-  ProcessTimeoutMinutes: 10  # Increase if builds are timing out
+  ProcessTimeoutMinutes: 20  # Increase for resource-limited servers (30-45 for 1 CPU/2GB RAM)
   RelativeMapFilesPath: "Resources/MapImages"
   MapDataFileName: "map.json"
   CleanMapFolderAfterImport: true
@@ -102,4 +102,4 @@ Build:
 # Processing Configuration
 Processing:
   TargetDirectory: "/app/build"  # Container path for processing
-  DirectoryPoolMaxSize: 3
+  DirectoryPoolMaxSize: 1  # Set to 1 for resource-limited servers, 3+ for powerful servers

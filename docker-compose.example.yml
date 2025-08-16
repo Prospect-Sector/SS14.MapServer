@@ -1,17 +1,32 @@
-version: '3.8'
-
 services:
   ss14-mapserver:
     image: ghcr.io/space-wizards/ss14.mapserver:latest
     container_name: ss14-mapserver
     restart: unless-stopped
+    # Resource limits - adjust based on your server specs
+    # Example for 1 CPU / 2GB RAM server:
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'      # Use max 80% of CPU (adjust for your CPU count)
+          memory: 1536M    # Use max 1.5GB RAM (adjust for your RAM)
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DOTNET_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://*:80
+      # .NET SDK optimization for building
+      - DOTNET_CLI_TELEMETRY_OPTOUT=1
+      - DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+      - DOTNET_CLI_HOME=/tmp
+      # Optional: Override specific settings with environment variables
+      # - ConnectionStrings__default=Server=db;Port=5432;Database=ss14_mapserver;User Id=postgres;Password=yourpassword;
     volumes:
-      # Mount your configuration file
+      # Mount your configuration file (REQUIRED)
       - ./SS14.MapServer/appsettings.yaml:/app/appsettings.yaml:ro
-      # Mount your GitHub App private key
+      # Mount your GitHub App private key (REQUIRED)
       - ./private-key.pem:/app/private-key.pem:ro
-      # Optional: Mount for persistent storage
-      # - ./data:/app/data
+      # DO NOT mount /app/build or /app/data - these cause permission issues
+      # The container handles these directories internally
     networks:
       - traefik  # Change to your network name
     labels:
@@ -21,15 +36,13 @@ services:
       - "traefik.http.routers.ss14-mapserver.entrypoints=websecure"
       - "traefik.http.routers.ss14-mapserver.tls.certresolver=letsencrypt"  # Change to your cert resolver
       - "traefik.http.services.ss14-mapserver.loadbalancer.server.port=80"
-    # Alternative: Direct port mapping (if not using reverse proxy)
-    # ports:
-    #   - "8080:80"
-    environment:
-      # Optional: Override specific settings with environment variables
-      - ASPNETCORE_ENVIRONMENT=Production
-      # - ConnectionStrings__default=Server=db;Port=5432;Database=ss14_mapserver;User Id=postgres;Password=yourpassword;
     depends_on:
       - db  # Remove if using external database
+    ulimits:
+      # Disable core dumps to save space
+      core:
+        hard: 0
+        soft: 0
 
   # PostgreSQL Database (remove if using external database)
   db:
@@ -55,37 +68,7 @@ networks:
 volumes:
   postgres_data:
 
-# Alternative configuration for nginx reverse proxy:
-#
-# services:
-#   ss14-mapserver:
-#     image: ghcr.io/space-wizards/ss14.mapserver:latest
-#     container_name: ss14-mapserver
-#     restart: unless-stopped
-#     volumes:
-#       - ./SS14.MapServer/appsettings.yaml:/app/appsettings.yaml:ro
-#       - ./private-key.pem:/app/private-key.pem:ro
-#     networks:
-#       - nginx
-#     environment:
-#       - ASPNETCORE_ENVIRONMENT=Production
-#
-#   nginx:
-#     image: nginx:alpine
-#     container_name: ss14-mapserver-nginx
-#     restart: unless-stopped
-#     ports:
-#       - "80:80"
-#       - "443:443"
-#     volumes:
-#       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-#       - ./ssl:/etc/nginx/ssl:ro
-#     networks:
-#       - nginx
-#     depends_on:
-#       - ss14-mapserver
-
-# Simple development setup (no reverse proxy):
+# Alternative configuration for direct port mapping (development):
 #
 # services:
 #   ss14-mapserver:
@@ -94,8 +77,43 @@ volumes:
 #     restart: unless-stopped
 #     ports:
 #       - "8080:80"
+#     environment:
+#       - ASPNETCORE_ENVIRONMENT=Development
+#       - DOTNET_CLI_TELEMETRY_OPTOUT=1
+#       - DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+#       - DOTNET_CLI_HOME=/tmp
 #     volumes:
 #       - ./SS14.MapServer/appsettings.yaml:/app/appsettings.yaml:ro
 #       - ./private-key.pem:/app/private-key.pem:ro
+
+# Working production example (based on successful deployment):
+#
+# services:
+#   ss14-mapserver:
+#     image: ghcr.io/space-wizards/ss14.mapserver:latest
+#     container_name: PS-SS14-MS
+#     restart: unless-stopped
 #     environment:
-#       - ASPNETCORE_ENVIRONMENT=Development
+#       - ASPNETCORE_ENVIRONMENT=Production
+#       - DOTNET_ENVIRONMENT=Production
+#       - ASPNETCORE_URLS=http://*:80
+#       - DOTNET_CLI_TELEMETRY_OPTOUT=1
+#       - DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+#       - DOTNET_CLI_HOME=/tmp
+#     volumes:
+#       - ./appsettings.yaml:/app/appsettings.yaml:ro
+#       - ./private-key.pem:/app/private-key.pem:ro
+#     networks:
+#       - default
+#       - traefik_lan
+#     labels:
+#       - "traefik.enable=true"
+#       - "traefik.http.routers.ss14-ms.rule=Host(`your-domain.com`)"
+#       - "traefik.http.routers.ss14-ms.entrypoints=https"
+#       - "traefik.http.routers.ss14-ms.tls=true"
+#       - "traefik.http.routers.ss14-ms.tls.certresolver=dns1"
+#       - "traefik.http.services.ss14-ms.loadbalancer.server.port=80"
+#     ulimits:
+#       core:
+#         hard: 0
+#         soft: 0
