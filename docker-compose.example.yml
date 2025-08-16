@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  ss14-mapserver:
+    image: ghcr.io/space-wizards/ss14.mapserver:latest
+    container_name: ss14-mapserver
+    restart: unless-stopped
+    volumes:
+      # Mount your configuration file
+      - ./SS14.MapServer/appsettings.yaml:/app/appsettings.yaml:ro
+      # Mount your GitHub App private key
+      - ./private-key.pem:/app/private-key.pem:ro
+      # Optional: Mount for persistent storage
+      # - ./data:/app/data
+    networks:
+      - traefik  # Change to your network name
+    labels:
+      # Traefik configuration for HTTPS
+      - "traefik.enable=true"
+      - "traefik.http.routers.ss14-mapserver.rule=Host(`your-domain.com`)"  # Change to your domain
+      - "traefik.http.routers.ss14-mapserver.entrypoints=websecure"
+      - "traefik.http.routers.ss14-mapserver.tls.certresolver=letsencrypt"  # Change to your cert resolver
+      - "traefik.http.services.ss14-mapserver.loadbalancer.server.port=80"
+    # Alternative: Direct port mapping (if not using reverse proxy)
+    # ports:
+    #   - "8080:80"
+    environment:
+      # Optional: Override specific settings with environment variables
+      - ASPNETCORE_ENVIRONMENT=Production
+      # - ConnectionStrings__default=Server=db;Port=5432;Database=ss14_mapserver;User Id=postgres;Password=yourpassword;
+    depends_on:
+      - db  # Remove if using external database
+
+  # PostgreSQL Database (remove if using external database)
+  db:
+    image: postgres:15
+    container_name: ss14-mapserver-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ss14_mapserver
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: yourpassword  # Change this!
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - traefik
+    # Optional: Expose port for external access
+    # ports:
+    #   - "5432:5432"
+
+networks:
+  traefik:
+    external: true  # Change to 'external: false' if creating the network
+
+volumes:
+  postgres_data:
+
+# Alternative configuration for nginx reverse proxy:
+#
+# services:
+#   ss14-mapserver:
+#     image: ghcr.io/space-wizards/ss14.mapserver:latest
+#     container_name: ss14-mapserver
+#     restart: unless-stopped
+#     volumes:
+#       - ./SS14.MapServer/appsettings.yaml:/app/appsettings.yaml:ro
+#       - ./private-key.pem:/app/private-key.pem:ro
+#     networks:
+#       - nginx
+#     environment:
+#       - ASPNETCORE_ENVIRONMENT=Production
+#
+#   nginx:
+#     image: nginx:alpine
+#     container_name: ss14-mapserver-nginx
+#     restart: unless-stopped
+#     ports:
+#       - "80:80"
+#       - "443:443"
+#     volumes:
+#       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+#       - ./ssl:/etc/nginx/ssl:ro
+#     networks:
+#       - nginx
+#     depends_on:
+#       - ss14-mapserver
+
+# Simple development setup (no reverse proxy):
+#
+# services:
+#   ss14-mapserver:
+#     image: ghcr.io/space-wizards/ss14.mapserver:latest
+#     container_name: ss14-mapserver
+#     restart: unless-stopped
+#     ports:
+#       - "8080:80"
+#     volumes:
+#       - ./SS14.MapServer/appsettings.yaml:/app/appsettings.yaml:ro
+#       - ./private-key.pem:/app/private-key.pem:ro
+#     environment:
+#       - ASPNETCORE_ENVIRONMENT=Development

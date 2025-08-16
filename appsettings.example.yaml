@@ -1,0 +1,105 @@
+# Example Production Configuration for SS14 MapServer
+# Copy this file to appsettings.yaml and fill in your actual values
+
+Serilog:
+  Using: [ "Serilog.Sinks.Console" ]
+  MinimumLevel:
+    Default: "Debug"
+    Override:
+      SS14: "Debug"
+      SS14.MapServer: "Debug"
+      SS14.MapServer.Controllers.GitHubWebhookController: "Debug"
+      SS14.MapServer.Services: "Debug"
+      SS14.GithubApiHelper: "Debug"
+      Microsoft: "Information"
+      Microsoft.Hosting.Lifetime: "Information"
+      Microsoft.AspNetCore: "Information"
+      Microsoft.AspNetCore.Hosting: "Information"
+      Microsoft.AspNetCore.Routing: "Information"
+      Microsoft.AspNetCore.Mvc: "Information"
+      #This service doesn't use data protection
+      Microsoft.AspNetCore.DataProtection: "Error"
+      #Reduce api key spam but keep some visibility
+      SS14.MapServer.Security.ApiKeyHandler: "Warning"
+
+  WriteTo:
+    - Name: Console
+      Args:
+        OutputTemplate: "[{Timestamp:HH:mm:ss.fff} {Level:u3} {SourceContext}] {Message:lj}{NewLine}{Exception}"
+
+  Enrich: [ "FromLogContext" ]
+
+AllowedHosts: "*"
+
+# Webhook Secret (for GithubWebhookHelper - REQUIRED at root level)
+AppWebhookSecret: "<your-github-webhook-secret>"
+
+# Authentication Configuration
+Auth:
+  ApiKey: "<your-secure-api-key>"
+
+# Git Repository Configuration
+Git:
+  RepositoryUrl: "https://github.com/<owner>/<repository>.git"  # IMPORTANT: Include .git suffix
+  Branch: "main"  # or "master" depending on your default branch
+  RetrieveMapFilesFromDiff: true
+  MapFilePatterns:
+    - "Resources/Maps/**/*.yml"  # Adjust pattern to match your map file locations
+    # Example patterns:
+    # - "Resources/Maps/_PS/**/*.yml"  # For subdirectories under _PS/
+    # - "Resources/Maps/*.yml"         # For files directly in Maps/
+  # Exclude maps that generally break the map renderer,
+  # like planet maps or you just don't want rendered
+  MapFileExcludePatterns:
+    - "europa.yml"
+    # Add other problematic maps here
+  DontRunWithCodeChanges: true  # SECURITY: Prevents execution when C# code changes
+  CodeChangePatterns:
+    - "**/*.cs"
+  RunOnPullRequests: true  # Enable PR comments with rendered maps
+  Identity:
+    Name: "ss14.mapserver"
+    Email: "git@mapserver.localhost"
+
+# GitHub App Configuration
+Github:
+  AppName: "<your-github-app-name>"
+  AppId: <your-github-app-id>  # Numeric ID from GitHub App settings
+  AppPrivateKeyLocation: "private-key.pem"  # Path to your GitHub App private key file
+  AppWebhookSecret: "<your-github-webhook-secret>"  # Same as AppWebhookSecret above
+
+# Database Connection
+ConnectionStrings:
+  default: "Server=<database-host>;Port=<port>;Database=<database-name>;User Id=<username>;Password=<password>;"
+  # Examples:
+  # PostgreSQL: "Server=localhost;Port=5432;Database=ss14_mapserver;User Id=postgres;Password=yourpassword;"
+  # DigitalOcean: "Server=your-db-host.db.ondigitalocean.com;Port=25060;Database=ss14-mapserver;User Id=doadmin;Password=yourpassword;"
+
+# Server Configuration
+Server:
+  Host: "https://your-domain.com"  # Your public domain
+  CorsOrigins:
+    - "http://0.0.0.0:80"
+    - "https://your-domain.com"  # Add your actual domain
+  Language: "en-US"
+  UseHttps: false  # Set to false if using reverse proxy (Traefik, nginx, etc.)
+  UseForwardedHeaders: true  # Required when behind reverse proxy
+  PathBase: null
+
+# Build Configuration
+Build:
+  Enabled: true
+  Runner: "Local"  # Currently only "Local" is supported
+  RelativeOutputPath: "bin"
+  MapRendererProjectName: "Content.MapRenderer"
+  MapRendererCommand: "Content.MapRenderer"  # Use "Content.MapRenderer.exe" on Windows
+  MapRendererOptionsString: "--format webp --viewer -f"
+  ProcessTimeoutMinutes: 10  # Increase if builds are timing out
+  RelativeMapFilesPath: "Resources/MapImages"
+  MapDataFileName: "map.json"
+  CleanMapFolderAfterImport: true
+
+# Processing Configuration
+Processing:
+  TargetDirectory: "/app/build"  # Container path for processing
+  DirectoryPoolMaxSize: 3
